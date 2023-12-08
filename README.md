@@ -2,15 +2,17 @@
 
 This is my codes for the [Open Problems – Single-Cell Perturbations](https://www.kaggle.com/competitions/open-problems-single-cell-perturbations) on Kaggle.
 
-### Highlighted Notebook
+My kaggle profile: [https://www.kaggle.com/masaishi](https://www.kaggle.com/masaishi)
+
+## Highlighted Notebook
 
 **Notebook: [opscp-m-nb019.ipynb](opscp-m-nb019.ipynb)**  
 This notebook is my personal favorite. This code convert table data to image format and then use image-based models for training
 
-### Code Snippets
+My one approach is to convert feature-added table data to image data and use PyTorch Image Models (Timm).
 
-#### Data Analysis and Statistics
-
+### Feature Engineering:
+My initial step involved enriching the dataset with calculated statistics for each gene and per 'sm_name' and 'cell_type'. This included mean, standard deviation, minimum, maximum, median, skewness, kurtosis, and mean-to-standard deviation ratios. These new features significantly increased the data dimensions.
 ```python
 def calculate_statistic(df, group_col, cols, stat_func, stat_name):
     """
@@ -26,41 +28,24 @@ cell_type_std = calculate_statistic(all_de_train, "cell_type", genes, lambda x: 
 # Additional statistics like min, max, median, skew, kurtosis, and ratio_mean_std are also calculated
 ```
 
-#### Machine Learning Pipeline
-
+### Converting Data to Image Format:
+I converted the data into an image format to handle this massive feature space. This conversion was necesally for applying image-based models.
 ```python
-import math
-import numpy as np
-import torch
-import torch.nn as nn
-import torch.nn.functional as F
-import torch.optim as optim
-from torch.utils.data import DataLoader, TensorDataset
-from torchvision import models
-from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
-from sklearn.decomposition import TruncatedSVD
-
 def convert_to_image_format(data, output_size=(224, 224)):
-    """
-    Function to convert data to a format suitable for image-based models.
-    """
-    # Code to pad and reshape data to image format
-    # ...
-
-# SVD for dimensionality reduction
-n_components = 100
-y_svd = TruncatedSVD(n_components=n_components, random_state=6174)
-y_truncated = y_svd.fit_transform(y_train.values)
-
-# Convert scaled data to image format and then to tensors
-X_img = convert_to_image_format(X_train.values)
-X_tensor = torch.tensor(X_img, dtype=torch.float32).permute(0, 3, 1, 2)
-y_tensor = torch.tensor(y_truncated, dtype=torch.float32)
-
-# Setup for KFold and training parameters
-num_epochs = 50
+		square_side = int(math.ceil(math.sqrt(data.shape[1])))
+		padding_size = square_side ** 2 - data.shape[1]
+		
+		data_padded = np.pad(data, ((0, 0), (0, padding_size)), 'constant', constant_values=0)
+		
+		# We are reshaping to [N, H, W, C] because the final torch tensor needs to be [N, C, H, W]
+		data_reshaped = data_padded.reshape(-1, square_side, square_side, 1)
+		
+		# Expand the last dimension to three channels by repeating the data
+		data_rgb = np.repeat(data_reshaped, 3, -1)
+		
+		return data_rgb
 ```
+![Sample image](output.png)
 
-#### Sample Image
-![sample image](output.png)
+### Fine-Tuning PyTorch Image Models (timm):
+I utilized the PyTorch Image Models library, which offers many pre-trained models. I fine-tuned these models, such as efficientnet_v2_l and regnet_y_800mf.
